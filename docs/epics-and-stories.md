@@ -1,0 +1,180 @@
+- Epic: Data Model & Validation
+  - Story: Add priority enum to task model
+    - Acceptance Criteria:
+      - Tasks include a `priority` property constrained to `P1`, `P2`, or `P3`.
+      - When no priority is provided on create, the task is saved with `P3`.
+      - Values outside `P1|P2|P3` are not persisted.
+    - Technical Requirements:
+      - Frontend data schema uses camelCase: `{ id, title, description, dueDate, priority, completed, createdAt }` persisted in localStorage.
+      - Initialize `priority` to `P3` in `TaskForm` state and when constructing new task objects.
+      - Add a constant `PRIORITIES = ['P1','P2','P3']` and validate before save; reject or coerce invalid values to `P3`.
+      - No backend schema changes in MVP; do not add `priority` column to backend.
+  - Story: Add optional dueDate to task model
+    - Acceptance Criteria:
+      - Tasks may have a `dueDate` or none at all.
+      - When present, `dueDate` is stored as ISO `YYYY-MM-DD`.
+      - Tasks without a `dueDate` are treated as undated by lists and filters.
+    - Technical Requirements:
+      - Store `dueDate` in localStorage as ISO `YYYY-MM-DD` (camelCase), not `due_date`.
+      - Add date normalization utility `normalizeISODate(input) -> 'YYYY-MM-DD' | null` used by `TaskForm` on save.
+      - Update `TaskList` to read/display `dueDate` (camelCase) and remove references to `due_date`.
+  - Story: Validate title required on create/edit
+    - Acceptance Criteria:
+      - Create/update is blocked if `title` is empty or whitespace only.
+      - Existing tasks cannot be saved without a non-empty `title`.
+    - Technical Requirements:
+      - Keep current validation in `TaskForm` and add unit tests in `packages/frontend/src/__tests__/App.test.js` to assert blocking behavior.
+      - On edit, preserve existing `createdAt` and `id`; only update mutable fields.
+  - Story: Validate priority values (P1, P2, P3)
+    - Acceptance Criteria:
+      - UI selection is limited to `P1`, `P2`, or `P3`.
+      - Programmatic attempts to set other values are rejected and not saved.
+    - Technical Requirements:
+      - Implement MUI `Select` with `MenuItem` options limited to `P1`, `P2`, `P3` in `TaskForm`.
+      - Add guard in storage layer to assert `priority` ∈ `PRIORITIES` before persisting.
+  - Story: Ignore invalid dueDate inputs
+    - Acceptance Criteria:
+      - Non-ISO or impossible dates are not persisted on save.
+      - When an invalid date is provided, the task is saved with no `dueDate`.
+      - Filters treat tasks with invalid date input as undated.
+    - Technical Requirements:
+      - Use regex `^\d{4}-\d{2}-\d{2}$` and `Date` validity check; if invalid, store `dueDate: null`.
+      - Do not throw on invalid input; silently treat as absent per PRD.
+      - Ensure `TaskList` displays no date chip when `dueDate` is null.
+- Epic: Priority UI
+  - Story: Capture priority in task form
+    - Acceptance Criteria:
+      - Form provides a control to choose `P1`, `P2`, or `P3`.
+      - The control writes the selected value to the task model on save.
+    - Technical Requirements:
+      - Add MUI `FormControl` + `InputLabel` + `Select` + `MenuItem` to `TaskForm` below Title.
+      - Bind to `priority` state with default `P3`; persist to localStorage on submit.
+  - Story: Default priority to P3 on new tasks
+    - Acceptance Criteria:
+      - New task form initializes with `P3` selected.
+      - Saving without changing priority persists `P3`.
+    - Technical Requirements:
+      - Set initial `priority` state to `P3` when `initialTask` is undefined.
+      - In edit mode, populate `priority` from the task record; fallback to `P3` if missing.
+  - Story: Show P1/P2/P3 labels in task list
+    - Acceptance Criteria:
+      - Each task row displays its priority label (`P1`, `P2`, or `P3`).
+      - Labels are visible across All, Today, and Overdue views.
+    - Technical Requirements:
+      - In `TaskList`, render a small MUI `Chip` for priority near actions.
+      - Map `P1`→ `color='error'`, `P2`→ `color='warning'`, `P3`→ `color='default'` for simple visual cues.
+- Epic: Due Date UI
+  - Story: Capture dueDate in task form
+    - Acceptance Criteria:
+      - Form includes a date input that accepts ISO `YYYY-MM-DD`.
+      - Invalid date input results in the task being saved without a `dueDate`.
+    - Technical Requirements:
+      - Keep the MUI `TextField` with `type="date"`; on submit, route through `normalizeISODate` and persist `dueDate` or null.
+      - Ensure `InputLabelProps={{ shrink: true }}` to display label correctly.
+  - Story: Display dueDate in task list
+    - Acceptance Criteria:
+      - Tasks with a `dueDate` display `YYYY-MM-DD` next to the title.
+      - Tasks without a `dueDate` show no date indicator.
+    - Technical Requirements:
+      - Update `formatDueDate` in `TaskList` to accept `dueDate` and return a `YYYY-MM-DD` string or localized short date for display consistency.
+      - Do not render the date chip when `dueDate` is null/empty.
+- Epic: Filters
+  - Story: Add tabs for All, Today, Overdue
+    - Acceptance Criteria:
+      - UI shows three tabs: All, Today, Overdue.
+      - Switching tabs updates the visible tasks without a page reload.
+    - Technical Requirements:
+      - Add MUI `Tabs` + `Tab` in `App` or `TaskList` to manage `view` state: `all|today|overdue`.
+      - Compute filtered array in FE using current date; do not call backend for filtering.
+  - Story: All view shows completed and incomplete
+    - Acceptance Criteria:
+      - All view includes both completed and incomplete tasks.
+      - No date-based filtering is applied beyond default list sorting.
+    - Technical Requirements:
+      - In `view==='all'`, return entire tasks array from localStorage.
+      - Respect the current sort strategy; for MVP, simple stable order by `createdAt` or existing.
+  - Story: Filter Today to incomplete tasks due today
+    - Acceptance Criteria:
+      - Shows tasks with `dueDate` equal to the current local date and not completed.
+      - Excludes tasks without `dueDate`, overdue tasks, and future-dated tasks.
+      - Excludes completed tasks.
+    - Technical Requirements:
+      - Compute `todayISO = new Date().toISOString().slice(0,10)` in local time; compare to `dueDate` strings.
+      - Filter `task.completed !== true`.
+  - Story: Filter Overdue to incomplete overdue tasks
+    - Acceptance Criteria:
+      - Shows tasks with `dueDate` earlier than the current local date and not completed.
+      - Excludes tasks due today, future-dated tasks, and tasks without `dueDate`.
+      - Excludes completed tasks.
+    - Technical Requirements:
+      - Compare `dueDate < todayISO` and `task.completed !== true`.
+      - Use local date comparisons without time components to avoid timezone drift.
+- Epic: Local Persistence
+  - Story: Save tasks to local storage
+    - Acceptance Criteria:
+      - Create/update/delete operations persist changes to browser local storage.
+      - Data remains after closing and reopening the app.
+    - Technical Requirements:
+      - Introduce `storage.js` with `loadTasks()`, `saveTasks(tasks)`, `addTask(task)`, `updateTask(task)`, `deleteTask(id)` using key `todo.tasks.v1`.
+      - Replace `fetch('/api/tasks'...)` calls in `App` and `TaskList` with storage operations (MVP).
+  - Story: Load tasks from local storage on startup
+    - Acceptance Criteria:
+      - On app start, tasks are loaded from local storage into the list.
+      - If storage is empty or malformed, the app initializes with an empty task list.
+    - Technical Requirements:
+      - On mount, call `loadTasks()` and set state; validate schema and default to `[]` when invalid.
+      - Generate `id` via incremental counter in localStorage or `Date.now()`; set `createdAt` at creation.
+- Epic: MUI Components
+  - Story: Implement task form with MUI components
+    - Acceptance Criteria:
+      - Task form uses MUI components for title, priority, and date input.
+      - Form renders consistently with MUI styling.
+    - Technical Requirements:
+      - Use MUI `TextField`, `Select`, `Button` components with theme colors per UI guidelines.
+      - Add basic a11y props (labels, aria) and keep focus styles.
+  - Story: Implement task list with MUI components
+    - Acceptance Criteria:
+      - Task list uses MUI list-related components for rendering.
+      - Each task row displays title, priority label, and optional `dueDate`.
+    - Technical Requirements:
+      - Use MUI `List`, `ListItem`, `Checkbox`, `Chip`, `IconButton`.
+      - Toggle complete updates `completed` in localStorage and re-renders.
+  - Story: Implement filter tabs with MUI components
+    - Acceptance Criteria:
+      - Filter tabs are implemented using MUI tab components (or equivalent).
+      - Tabs display All, Today, Overdue and switch views correctly.
+    - Technical Requirements:
+      - Use MUI `Tabs` with controlled `value` and handle change to set view state.
+      - Ensure tabs are keyboard accessible by default.
+
+- Epic: Overdue Highlighting (Post-MVP)
+  - Story: Visually highlight overdue tasks in list
+    - Acceptance Criteria:
+      - Overdue tasks render with a distinct visual style to emphasize urgency.
+      - Highlight applies consistently across all list views.
+      - Tasks due today or in the future are not highlighted.
+    - Technical Requirements:
+      - In `TaskList`, compute `isOverdue` from `dueDate` and apply red-tinted background/border per UI guidelines.
+      - Do not apply highlighting to completed tasks (optional refinement if desired).
+- Epic: Sorting Rules (Post-MVP)
+  - Story: Sort overdue tasks to top
+    - Acceptance Criteria:
+      - Overdue tasks appear before non-overdue tasks in all list views.
+    - Technical Requirements:
+      - Implement FE comparator: `isOverdue(a) !== isOverdue(b)` → overdue first.
+  - Story: Sort by priority P1→P3 within groups
+    - Acceptance Criteria:
+      - Within the same overdue/non-overdue grouping, tasks sort `P1` before `P2` before `P3`.
+    - Technical Requirements:
+      - Map `P1→1`, `P2→2`, `P3→3` and sort ascending within group.
+  - Story: Sort by due date ascending
+    - Acceptance Criteria:
+      - Within the same priority, tasks with earlier `dueDate` appear before later ones.
+    - Technical Requirements:
+      - Compare `dueDate` strings lexicographically (`YYYY-MM-DD`) with nulls treated as greater than any date.
+  - Story: Place undated tasks last
+    - Acceptance Criteria:
+      - Tasks without a `dueDate` appear after tasks with a `dueDate`.
+    - Technical Requirements:
+      - Ensure comparator pushes `dueDate == null` to end.
+      - Optional backend parity (Post‑MVP+): align `/api/tasks` ORDER BY to match FE comparator when/if backend is used.
