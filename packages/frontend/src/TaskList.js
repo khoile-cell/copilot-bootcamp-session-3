@@ -27,6 +27,15 @@ function TaskList({ onEdit }) {
     });
   };
 
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'P1': return { bg: '#f44336', color: 'white' }; // Red for high priority
+      case 'P2': return { bg: '#ff9800', color: 'white' }; // Orange for medium priority
+      case 'P3': return { bg: '#9e9e9e', color: 'white' }; // Gray for low priority
+      default: return { bg: '#9e9e9e', color: 'white' };
+    }
+  };
+
   const fetchTasks = async () => {
     try {
       setLoading(true);
@@ -203,6 +212,19 @@ function TaskList({ onEdit }) {
                 gap: 1
               }}
             >
+              {task.priority && (
+                <Chip
+                  label={task.priority}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    backgroundColor: getPriorityColor(task.priority).bg,
+                    color: getPriorityColor(task.priority).color,
+                  }}
+                />
+              )}
               {task.due_date && (
                 <Chip
                   icon={<EventIcon sx={{ fontSize: 14 }} />}
