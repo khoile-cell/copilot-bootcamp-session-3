@@ -92,3 +92,26 @@ li:last-child {
   color: #d32f2f;
   font-weight: bold;
 }
+
+/* Priority item styles */
+.priority-item-selected {
+  background-color: #07F2E6 !important;
+  color: #000000 !important;
+}
+
+.priority-item-unselected {
+  background-color: #7A7A7A !important;
+  color: #ffffff !important;
+}
+
+.priority-filter-selected {
+  background-color: #07F2E6 !important;
+  color: #000000 !important;
+  border-color: #07F2E6 !important;
+}
+
+.priority-filter-unselected {
+  background-color: #7A7A7A !important;
+  color: #ffffff !important;
+  border-color: #7A7A7A !important;
+}
